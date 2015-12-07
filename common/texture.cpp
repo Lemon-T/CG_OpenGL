@@ -15,6 +15,7 @@ void init_texture_loading() {
 GLuint load_texture(const std::string& filename, GLenum wrap_s, GLenum wrap_t) {
   int width, height;
   std::cout << "loading texture: " << filename << std::endl;
+
   //unsigned char * data = SOIL_load_image(filename.c_str(), &width, &height, 0, SOIL_LOAD_RGBA);
 
   ILuint ihandle;
@@ -39,11 +40,14 @@ GLuint load_texture(const std::string& filename, GLenum wrap_s, GLenum wrap_t) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_s);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_t);
   glGenerateMipmap(GL_TEXTURE_2D);
+  // sets how opengl handles out-of-range texcoords
+  glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+  glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+  glGenerateMipmap(target);
+  SOIL_free_image_data(data);
 
-  //SOIL_free_image_data(data);
-
-  ilDeleteImages(1, &ihandle);
-  delete [] data;
+  //ilDeleteImages(1, &ihandle);
+  //delete [] data;
 
   glBindTexture(GL_TEXTURE_2D, 0);
   return id;

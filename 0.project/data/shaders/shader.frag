@@ -56,6 +56,9 @@ uniform sampler2D shadowMap;
 uniform Material material;
 uniform vec3 ViewPos;
 
+uniform bool shadows;
+
+
 vec3 calcDirLight(DirLight light, vec3 normal, vec3 viewDir);
 vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
@@ -63,6 +66,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 lightPos);
 
 void main()
 {
+  vec3 color = texture(material.texture_diffuse1, TexCoords).rgb;
   vec3 normal = normalize(Normal);
   vec3 viewDir = normalize(ViewPos - FragPos);
 

@@ -37,6 +37,8 @@ void do_movement(double delta_time);
 
 bool flash_light_on = false;
 bool enable_stars = true;
+// Options
+GLboolean shadows = true;
 
 std::default_random_engine rand_generator;
 std::uniform_real_distribution<float> rand_rotate_dist(0.0f, 360.0f);
@@ -45,8 +47,12 @@ auto rand_rotate = std::bind(rand_rotate_dist, rand_generator);
 auto rand_scale = std::bind(rand_scale_dist, rand_generator);
 
 //xzh
+<<<<<<< HEAD
 void RenderFloor(Shader &shader);
 void RenderCubes(Shader &shader);
+=======
+void RenderScene(Shader &shader);
+>>>>>>> origin/master
 void RenderCube();
 GLuint planeVAO;
 
@@ -99,6 +105,42 @@ int main() {
   glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
   glBindVertexArray(0);
 
+<<<<<<< HEAD
+=======
+  //plane
+  Shader simpleDepthShader("data/shaders/shadow_mapping_depth.vs", "data/shaders/shadow_mapping_depth.frag");
+  
+  Model ourModel("data/Obj/nanosuit.obj");
+
+  GLfloat planeVertices[] = {
+	  // Positions          // Normals         // Texture Coords
+	  2.0f, 0.0f, 2.0f, 0.0f, 1.0f, 0.0f, 2.0f, 0.0f,
+	  -2.0f, 0.0f, -2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 2.0f,
+	  -2.0f, 0.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+
+	  2.0f, 0.0f, 2.0f, 0.0f, 1.0f, 0.0f, 2.0f, 0.0f,
+	  2.0f, 0.0f, -2.0f, 0.0f, 1.0f, 0.0f, 2.0f, 2.0f,
+	  -2.0f, 0.0f, -2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 2.0f
+  };
+
+  // Setup plane VAO xzhs
+  GLuint planeVBO;
+  GLuint woodTexture;
+  GLuint rockTexture;
+  glGenVertexArrays(1, &planeVAO);
+  glGenBuffers(1, &planeVBO);
+  glBindVertexArray(planeVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), &planeVertices, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+  glBindVertexArray(0);
+
+>>>>>>> origin/master
   // Load textures
   woodTexture = load_texture("data/textures/wood.png");
   rockTexture = load_texture("data/textures/rock.jpg");
@@ -163,7 +205,6 @@ int main() {
     m = glm::rotate(m, glm::radians(rand_rotate()), glm::vec3(1.0f, 0.0f, 0.0f));
     m = glm::rotate(m, glm::radians(rand_rotate()), glm::vec3(0.0f, 1.0f, 0.0f));
   }
-
   double last_frame = glfwGetTime();
   while (!glfwWindowShouldClose(window)) {
     double current_frame = glfwGetTime();
@@ -365,6 +406,80 @@ int main() {
     shaders.SetUniform("model", nmodel);
     ourModel.Draw(shaders);
     //xzhe
+
+	//xzhs
+	// Set texture samples
+	shaders.Use();
+	glUniform1i(glGetUniformLocation(shaders.Program, "material.texture_diffuse1"), 0);
+	glUniform1i(glGetUniformLocation(shaders.Program, "shadowMap"), 1);
+
+	// 1. Render depth of scene to texture (from light's perspective)
+	// - Get light projection/view matrix.
+	//光源空间的变换
+	glm::mat4 lightProjection, lightView;
+	glm::mat4 lightSpaceMatrix;
+	GLfloat near_plane = 1.0f, far_plane = 7.5f;
+
+	lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+	//lightProjection = glm::perspective(45.0f, (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // Note that if you use a perspective projection matrix you'll have to change the light position as the current light position isn't enough to reflect the whole scene.
+	lightView = glm::lookAt(sunPos, glm::vec3(0.0f), glm::vec3(1.0));
+	lightSpaceMatrix = lightProjection * lightView;
+	// - now render scene from light's point of view
+	//首先渲染深度贴图
+	simpleDepthShader.Use();
+	glUniformMatrix4fv(glGetUniformLocation(simpleDepthShader.Program, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	RenderScene(simpleDepthShader);
+
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0.1f, 0.3f, 1.0f)); // Translate it down a bit so it's at the center of the scene
+	model = glm::scale(model, glm::vec3(0.05f, 0.05f, 0.05f));
+	glUniformMatrix4fv(glGetUniformLocation(simpleDepthShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	ourModel.Draw(simpleDepthShader);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// 2. Render scene as normal 
+	glViewport(0, 0, windowWidth, windowHeight);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	shaders.Use();
+	glUniformMatrix4fv(glGetUniformLocation(shaders.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(glGetUniformLocation(shaders.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+	// Set light uniforms
+	glUniform3f(glGetUniformLocation(shaders.Program, "viewPos"), camera.Position.x, camera.Position.y, camera.Position.z);
+	//设置点光源产生阴影
+	// Point light 1
+	glUniform3f(glGetUniformLocation(shaders.Program, "pointLights[0].position"), sunPos.x, sunPos.y, sunPos.z);
+	glUniform3f(glGetUniformLocation(shaders.Program, "pointLights[0].ambient"), 0.02f, 0.02f, 0.02f);
+	glUniform3f(glGetUniformLocation(shaders.Program, "pointLights[0].diffuse"), 1.0f, 1.0f, 1.0f);
+	glUniform3f(glGetUniformLocation(shaders.Program, "pointLights[0].specular"), 0.5f, 0.5f, 0.5f);
+	glUniform1f(glGetUniformLocation(shaders.Program, "pointLights[0].constant"), 1.0f);
+	glUniform1f(glGetUniformLocation(shaders.Program, "pointLights[0].linear"), 0.009);
+	glUniform1f(glGetUniformLocation(shaders.Program, "pointLights[0].quadratic"), 0.0032);
+	
+	glUniform3fv(glGetUniformLocation(shaders.Program, "ViewPos"), 1, &camera.Position[0]);
+	glUniformMatrix4fv(glGetUniformLocation(shaders.Program, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+	// Enable/Disable shadows by pressing 'SPACE'
+	glUniform1i(glGetUniformLocation(shaders.Program, "shadows"), shadows);
+	glUniform1i(glGetUniformLocation(shaders.Program, "pointLightCount"), 1);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, woodTexture);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	RenderScene(shaders);
+
+
+	glActiveTexture(GL_TEXTURE15);
+	glBindTexture(GL_TEXTURE_2D, woodTexture);
+	glUniform1i(glGetUniformLocation(shaders.Program, "material.texture_diffuse1"), 1);
+	glActiveTexture(GL_TEXTURE16);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glUniform1i(glGetUniformLocation(shaders.Program, "shadowMap"), 16);
+	glUniformMatrix4fv(glGetUniformLocation(shaders.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	ourModel.Draw(shaders);
+	//xzhe
 
     glfwSwapBuffers(window);
   }
